@@ -14,3 +14,14 @@
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::prefix('api')->group(function (){
+    Route::get('businessList','ApisController@businessList')->name('businessList');
+
+    Route::get('business','ApisController@business')->name('business');
+
+    Route::post('regist','ApisController@regist')->name('regist');
+
+});
+
+
