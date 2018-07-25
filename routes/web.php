@@ -19,11 +19,11 @@ Route::prefix('api')->group(function (){
     Route::get('businessList','ApisController@businessList')->name('businessList');
 
     Route::get('business','ApisController@business')->name('business');
-    //æ‰‹æœºéªŒè¯ç 
+    //ÊÖ»úÑéÖ¤Âë
     Route::get('sms','ApisController@sms')->name('sms');
-    //æ³¨å†Œ
+    //×¢²á
     Route::post('regist','ApisController@regist')->name('regist');
-    //ç™»å½•
+    //µÇÂ¼
     Route::post('loginCheck','ApisController@loginCheck')->name('loginCheck');
 
 });
