@@ -19,8 +19,12 @@ Route::prefix('api')->group(function (){
     Route::get('businessList','ApisController@businessList')->name('businessList');
 
     Route::get('business','ApisController@business')->name('business');
-
+    //手机验证码
+    Route::get('sms','ApisController@sms')->name('sms');
+    //注册
     Route::post('regist','ApisController@regist')->name('regist');
+    //登录
+    Route::post('loginCheck','ApisController@loginCheck')->name('loginCheck');
 
 });
 

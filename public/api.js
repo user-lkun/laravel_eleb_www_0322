@@ -1,8 +1,8 @@
 window.api = {
-  // 登录验证接口
-  loginCheck: '/loginCheck.php',
-  // 获取短信验证码接口
-  sms: '/sms.php',
+  // // 登录验证接口
+  // loginCheck: '/loginCheck.php',
+  // // 获取短信验证码接口
+  // sms: '/sms.php',
 
   // 修改密码接口
   changePassword: '/changePassword.php',
@@ -36,6 +36,13 @@ window.api = {
     businessList: '/api/businessList',
     // 获得指定商家接口
     business: '/api/business{id}',
+
+    // 获取短信验证码接口
+    sms: '/api/sms',
+
     // 注册接口
     regist: '/api/regist',
+
+    // 登录验证接口
+    loginCheck: '/api/loginCheck',
 };
