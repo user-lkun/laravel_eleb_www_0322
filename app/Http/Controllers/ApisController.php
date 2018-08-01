@@ -79,7 +79,7 @@ class ApisController extends Controller
             "time"=>date("Y-m-d H:i:s",time()),
             "evaluate_code"=> 1,
             "send_time"=>30,
-            "evaluate_details"=> "不怎么好吃"
+            "evaluate_details"=> "还可以,将就吃!"
             ]
         ];
         $commoditys = MenuCategories::select([
@@ -436,10 +436,8 @@ class ApisController extends Controller
         $sn = 'sn'.date('YmdHis',time()).mt_rand(1000,9999);
 
         $out_trade_no = mt_rand(1000,9999);
-        DB::beginTransaction();
+        DB::beginTransaction();//开启事务
         try{
-
-
         $res = Orders::create([
             'member_id'=>$member_id,
             'shop_id'=>$shops->shop_id,
@@ -470,6 +468,10 @@ class ApisController extends Controller
            DB::commit();
         }catch (Exception $exception){
             DB::rollBack();
+            return json_encode([
+                "status"=>"false",
+                "message"=> "添加订单失败",
+            ]);
         }
         return json_encode([
               "status"=>"true",
