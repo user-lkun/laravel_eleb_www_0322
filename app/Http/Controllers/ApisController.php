@@ -11,11 +11,13 @@ use App\Models\Menus;
 use App\Models\OrderGoods;
 use App\Models\Orders;
 use App\Models\Shops;
+use App\Models\ShopUsers;
 use App\SignatureHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Validator;
 use Mockery\Exception;
@@ -419,6 +421,7 @@ class ApisController extends Controller
 
     }
     public function addorder(Request $request){
+
         $member_id = Auth::user()->id;
         $address = MemberAddress::where('id',$request->address_id)->first();
 
@@ -473,11 +476,90 @@ class ApisController extends Controller
                 "message"=> "添加订单失败",
             ]);
         }
+
+
+
+        //添加订单成功之前,给用户发送短信通知
+        $tel = Auth::user()->tel;
+        $params = array ();
+
+        // *** 需用户填写部分 ***
+
+        // fixme 必填: 请参阅 https://ak-console.aliyun.com/ 取得您的AK信息
+        $accessKeyId = "LTAI5zqIhn36ug5o";
+        $accessKeySecret = "Xl4s7PHRU7jTchYzutxyCT693rUZUM";
+
+        // fixme 必填: 短信接收号码
+        $params["PhoneNumbers"] = $tel;
+
+        // fixme 必填: 短信签名，应严格按"签名名称"填写，请参考: https://dysms.console.aliyun.com/dysms.htm#/develop/sign
+        $params["SignName"] = "廖昆";
+
+        // fixme 必填: 短信模板Code，应严格按"模板CODE"填写, 请参考: https://dysms.console.aliyun.com/dysms.htm#/develop/template
+        $params["TemplateCode"] = "SMS_141255001";
+
+        // fixme 可选: 设置模板参数, 假如模板中存在变量需要替换则为必填项
+
+        $name = DB::table('shops')->where('id',$shops->shop_id)->first()->shop_name;//商家名
+        $params['TemplateParam'] = Array (
+            "name" => $name,
+            // "product" => "阿里通信"
+        );
+
+        // fixme 可选: 设置发送短信流水号
+        $params['OutId'] = "12345";
+
+        // fixme 可选: 上行短信扩展码, 扩展码字段控制在7位或以下，无特殊需求用户请忽略此字段
+        $params['SmsUpExtendCode'] = "1234567";
+
+
+        // *** 需用户填写部分结束, 以下代码若无必要无需更改 ***
+        if(!empty($params["TemplateParam"]) && is_array($params["TemplateParam"])) {
+            $params["TemplateParam"] = json_encode($params["TemplateParam"], JSON_UNESCAPED_UNICODE);
+        }
+
+        // 初始化SignatureHelper实例用于设置参数，签名以及发送请求
+        $helper = new SignatureHelper();
+
+        // 此处可能会抛出异常，注意catch
+        $content = $helper->request(
+
+            $accessKeyId,
+            $accessKeySecret,
+            "dysmsapi.aliyuncs.com",
+            array_merge($params, array(
+                    "RegionId" => "cn-hangzhou",
+                    "Action" => "SendSms",
+                    "Version" => "2017-05-25",
+                )
+            )
+        // fixme 选填: 启用https
+        // ,true
+        );
+        //发短信完
+
+        //添加订单成功后,给商家发送邮件通知
+        $shop_id = DB::table('orders')->select('shop_id')
+            ->where('id',$order_id)
+            ->first();
+        $msg = DB::table('shop_users')->select('email','name')
+            ->where('shop_id',$shop_id->shop_id)
+            ->first();
+//        $_SERVER['email']=$msg->email;
+        $_SERVER['email']='liao1026860145@163.com';
+        $shopuser = $msg->name;
+        $res = Mail::raw("大兄弟:".$shopuser.",你好!你有新的订单了,请登录查看!",function ($message){//发内容
+            $message->subject('订单通知');
+            $message->to($_SERVER['email']);
+            $message->from('liao1026860145@163.com','liao1026860145');
+
+        });
         return json_encode([
               "status"=>"true",
               "message"=> "添加成功",
               "order_id"=>$order_id
         ]);
+
     }
     public function order(Request $request){
 
