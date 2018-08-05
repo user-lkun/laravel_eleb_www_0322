@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Validator;
 use Mockery\Exception;
+use Psy\Exception\ErrorException;
 
 
 class ApisController extends Controller
@@ -28,96 +29,102 @@ class ApisController extends Controller
     // 商家列表接口
     public function businessList(Request $request){
 
-        if ($request->keyword!=null){
-           $list = Shops::where('shop_name','like','%'.$request->keyword.'%')->get();
+        //将店铺列表实现redis缓存
+        if(!Redis::get('businesslists')){
+            if ($request->keyword!=null){
+                $list = Shops::where('shop_name','like','%'.$request->keyword.'%')->get();
 
-        }else{
-            $list = Shops::all();
+            }else{
+                $list = Shops::all();
+            }
+            foreach ($list as $val){
+                $val['distance']=mt_rand(100,5000);
+                $val['estimate_time']=mt_rand(10,60);
+            }
+            $res = json_encode($list);
+            Redis::set('businesslists',$res);
+
         }
-
-//        $list = Shops::all();
-        foreach ($list as $val){
-            $val['distance']=mt_rand(100,5000);
-            $val['estimate_time']=mt_rand(10,60);
-        }
-
-        $res = json_encode($list);
-        return $res;
+            return Redis::get('businesslists');
     }
     //获取指定商家接口
     public function business(Request $request){
-        $res = Shops::select([
-            "id",
-            "shop_name",
-            "shop_img",
-            "shop_rating",
+        if (!Redis::get('business')){
+            $res = Shops::select([
+                "id",
+                "shop_name",
+                "shop_img",
+                "shop_rating",
 //                "service_code": 4.6,
 //                "foods_code": 4.4,
 //                "high_or_low": true,
 //                "h_l_percent": 30,
-            "brand",
-            "on_time",
-            "fengniao",
-            "bao",
-            "piao",
-            "zhun",
-            "start_send",
-            "send_cost",
+                "brand",
+                "on_time",
+                "fengniao",
+                "bao",
+                "piao",
+                "zhun",
+                "start_send",
+                "send_cost",
 //                "distance": 637,
 //                "estimate_time": 31,
-            "notice",
-            "discount"
-        ])->where('id','=',$request->id)->first();
-        $res['service_code']=4.6;
-        $res['foods_code']=4.4;
-        $res['high_or_low']='true';
-        $res['distance']=637;
-        $res['estimate_time']=31;
+                "notice",
+                "discount"
+            ])->where('id','=',$request->id)->first();
+            $res['service_code']=4.6;
+            $res['foods_code']=4.4;
+            $res['high_or_low']='true';
+            $res['distance']=637;
+            $res['estimate_time']=31;
 
-        $res['evaluate']=[[
-            "user_id"=> 12344,
-            "username"=> "w******k",
-            "user_img"=>"http://www.homework.com/images/slider-pic4.jpeg",
-            "time"=>date("Y-m-d H:i:s",time()),
-            "evaluate_code"=> 1,
-            "send_time"=>30,
-            "evaluate_details"=> "还可以,将就吃!"
+            $res['evaluate']=[[
+                "user_id"=> 12344,
+                "username"=> "w******k",
+                "user_img"=>"http://www.homework.com/images/slider-pic4.jpeg",
+                "time"=>date("Y-m-d H:i:s",time()),
+                "evaluate_code"=> 1,
+                "send_time"=>30,
+                "evaluate_details"=> "还可以,将就吃!"
             ]
-        ];
-        $commoditys = MenuCategories::select([
-                "id",
-                "description",
-                "is_selected",
-                "name",
-                "type_accumulation"
+            ];
+            $commoditys = MenuCategories::select([
+                    "id",
+                    "description",
+                    "is_selected",
+                    "name",
+                    "type_accumulation"
 
-            ]
-        )->where('shop_id',$request->id)->get();
+                ]
+            )->where('shop_id',$request->id)->get();
 
-        foreach ($commoditys as $commodity) {
-            $goods_list = Menu::select([
-                "id",
-                "goods_name",
-                "rating",
-                "goods_price",
-                "description",
-                "month_sales",
-                "rating_count",
-                "tips",
-                "satisfy_count",
-                "satisfy_rate",
-                "goods_img"
-            ])->where('category_id', $commodity->id)->get();
-            foreach ($goods_list as $val){
-                $val['goods_id']=$val['id'];
+            foreach ($commoditys as $commodity) {
+                $goods_list = Menu::select([
+                    "id",
+                    "goods_name",
+                    "rating",
+                    "goods_price",
+                    "description",
+                    "month_sales",
+                    "rating_count",
+                    "tips",
+                    "satisfy_count",
+                    "satisfy_rate",
+                    "goods_img"
+                ])->where('category_id', $commodity->id)->get();
+                foreach ($goods_list as $val){
+                    $val['goods_id']=$val['id'];
+                }
+
+                $commodity['goods_list']=$goods_list;
             }
 
-            $commodity['goods_list']=$goods_list;
+            $res['commodity']=$commoditys;
+            Redis::set('business',json_encode($res));
         }
 
-        $res['commodity']=$commoditys;
 
-          return json_encode($res);
+          return Redis::get('business');
 
      }
 
@@ -164,6 +171,7 @@ class ApisController extends Controller
         $helper = new SignatureHelper();
 
             // 此处可能会抛出异常，注意catch
+        try{
             $content = $helper->request(
 
                 $accessKeyId,
@@ -176,13 +184,15 @@ class ApisController extends Controller
                     )
                 )
             // fixme 选填: 启用https
-            // ,true
             );
+        }catch (ErrorException $exception){
+            return $exception;
+        }
 
         //将短信验证码保存在redis里面
 
         Redis::set('code_'.$tel,$code);
-        Redis::expire('code','300');
+        Redis::expire('code_'.$tel,'300');
 
         return json_encode([
             "status"=>"true",
